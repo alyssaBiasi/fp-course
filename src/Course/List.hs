@@ -259,7 +259,11 @@ seqOptional = foldRight (twiceOptional (:.)) (Full Nil)
 -- >>> find (const True) infinity
 -- Full 0
 find :: (a -> Bool) -> List a -> Optional a
-find = error "todo: Course.List#find"
+find p = foldRight (\x y -> if p x then Full x else y) Empty
+-- find _ Nil = Empty
+-- find p (h :. t) = case p h of
+--                     True -> Full h
+--                     False -> find p t
 
 -- | Determine if the length of the given list is greater than 4.
 --
