@@ -71,12 +71,9 @@ foldLeft f b (h :. t) = let b' = f b h in b' `seq` foldLeft f b' t
 -- prop> x `headOr` infinity == 0
 --
 -- prop> x `headOr` Nil == x
-headOr ::
-  a
-  -> List a
-  -> a
-headOr =
-  error "todo: Course.List#headOr"
+headOr :: a -> List a -> a
+headOr x Nil = x
+headOr _ (x :. _) = x
 
 -- | The product of the elements of a list.
 --
@@ -88,11 +85,10 @@ headOr =
 --
 -- >>> product (1 :. 2 :. 3 :. 4 :. Nil)
 -- 24
-product ::
-  List Int
-  -> Int
-product =
-  error "todo: Course.List#product"
+product :: List Int -> Int
+product = foldLeft (*) 1
+-- product Nil = 1
+-- product (h :. t) = h * product t
 
 -- | Sum the elements of the list.
 --
@@ -103,11 +99,10 @@ product =
 -- 10
 --
 -- prop> foldLeft (-) (sum x) x == 0
-sum ::
-  List Int
-  -> Int
-sum =
-  error "todo: Course.List#sum"
+sum :: List Int -> Int
+sum = foldLeft (+) 0
+-- sum Nil = 0
+-- sum (h :. t) = h + sum t
 
 -- | Return the length of the list.
 --
@@ -115,11 +110,12 @@ sum =
 -- 3
 --
 -- prop> sum (map (const 1) x) == length x
-length ::
-  List a
-  -> Int
-length =
-  error "todo: Course.List#length"
+length :: List a -> Int
+length = foldLeft (const . (+ 1)) 0
+-- length Nil = 0
+-- length (_ :. t) = 1 + length t
+
+-- cp :: (b -> c) -> (a -> b) -> (a -> c)
 
 -- | Map the given function on each element of the list.
 --
@@ -129,12 +125,10 @@ length =
 -- prop> headOr x (map (+1) infinity) == 1
 --
 -- prop> map id x == x
-map ::
-  (a -> b)
-  -> List a
-  -> List b
-map =
-  error "todo: Course.List#map"
+map :: (a -> b) -> List a -> List b
+map _ Nil = Nil
+map f (h :. t) = (f h) :. (map f t)
+-- map f = foldRight (:. . f) Nil
 
 -- | Return elements satisfying the given predicate.
 --
@@ -146,12 +140,14 @@ map =
 -- prop> filter (const True) x == x
 --
 -- prop> filter (const False) x == Nil
-filter ::
-  (a -> Bool)
-  -> List a
-  -> List a
-filter =
-  error "todo: Course.List#filter"
+filter :: (a -> Bool) -> List a -> List a
+filter _ Nil = Nil
+filter p (h :. t) =
+  let rest = filter p t
+  in case p h of
+      True -> (h :. rest)
+      False -> rest
+-- if p h then (h :. filter p t) else (filter p t)
 
 -- | Append two lists to a new list.
 --
@@ -165,12 +161,12 @@ filter =
 -- prop> (x ++ y) ++ z == x ++ (y ++ z)
 --
 -- prop> x ++ Nil == x
-(++) ::
-  List a
-  -> List a
-  -> List a
-(++) =
-  error "todo: Course.List#(++)"
+(++) :: List a -> List a -> List a
+(++) = flip (foldRight (:.))
+--(++) x y = foldRight (:.) y x
+-- (++) Nil l = l
+-- (++) l Nil = l
+-- (++) (h :. t) l = h :. (t ++ l)
 
 infixr 5 ++
 
@@ -184,11 +180,10 @@ infixr 5 ++
 -- prop> headOr x (flatten (y :. infinity :. Nil)) == headOr 0 y
 --
 -- prop> sum (map length x) == length (flatten x)
-flatten ::
-  List (List a)
-  -> List a
-flatten =
-  error "todo: Course.List#flatten"
+flatten :: List (List a) -> List a
+flatten = foldRight (++) Nil
+-- flatten Nil = Nil
+-- flatten (l :. t) = l ++ flatten t
 
 -- | Map a function then flatten to a list.
 --
@@ -200,22 +195,17 @@ flatten =
 -- prop> headOr x (flatMap id (y :. infinity :. Nil)) == headOr 0 y
 --
 -- prop> flatMap id (x :: List (List Int)) == flatten x
-flatMap ::
-  (a -> List b)
-  -> List a
-  -> List b
-flatMap =
-  error "todo: Course.List#flatMap"
+flatMap :: (a -> List b) -> List a -> List b
+flatMap f = foldRight ((++) . f) Nil
+-- flatMap _ Nil = Nil
+-- flatMap f (h :. t) = (f h) ++ (flatMap f t)
 
 -- | Flatten a list of lists to a list (again).
 -- HOWEVER, this time use the /flatMap/ function that you just wrote.
 --
 -- prop> let types = x :: List (List Int) in flatten x == flattenAgain x
-flattenAgain ::
-  List (List a)
-  -> List a
-flattenAgain =
-  error "todo: Course.List#flattenAgain"
+flattenAgain :: List (List a) -> List a
+flattenAgain = flatMap id
 
 -- | Convert a list of optional values to an optional list of values.
 --
@@ -239,11 +229,17 @@ flattenAgain =
 --
 -- >>> seqOptional (Empty :. map Full infinity)
 -- Empty
-seqOptional ::
-  List (Optional a)
-  -> Optional (List a)
-seqOptional =
-  error "todo: Course.List#seqOptional"
+seqOptional :: List (Optional a) -> Optional (List a)
+seqOptional = foldRight (twiceOptional (:.)) (Full Nil)
+-- seqOptional Nil = Full Nil
+-- seqOptional (h :. t) = twiceOptional (:.) h (seqOptional t)
+
+-- addToList :: Optional a -> Optional (List a) -> Optional (List a)
+-- addToList x y = bindOptional (\e -> mapOptional (e :.) y) x
+--    ~ addToList = twiceOptional (:.)
+
+
+-- seqOptional = foldRight undefined (Full Nil)
 
 -- | Find the first element in the list matching the predicate.
 --
@@ -261,12 +257,8 @@ seqOptional =
 --
 -- >>> find (const True) infinity
 -- Full 0
-find ::
-  (a -> Bool)
-  -> List a
-  -> Optional a
-find =
-  error "todo: Course.List#find"
+find :: (a -> Bool) -> List a -> Optional a
+find = error "todo: Course.List#find"
 
 -- | Determine if the length of the given list is greater than 4.
 --
