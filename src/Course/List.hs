@@ -235,6 +235,22 @@ seqOptional = foldRight (twiceOptional (:.)) (Full Nil)
 -- seqOptional Nil = Full Nil
 -- seqOptional (h :. t) = twiceOptional (:.) h (seqOptional t)
 
+{-
+seqOptional (h :. t) =
+      case h of
+        Empty -> Empty
+        Full b -> case (seqOptional t) of
+                       Empty -> Empty
+                       Full l -> Full (b :. l)
+
+seqOptional (h :. t) =
+      case h of
+        Empty -> Empty
+        Full b -> mapOptional (b :.) (seqOptional t)
+
+seqOptional (h :. t) = bindOptional (\b -> mapOptional (b :.) (seqOptional t)) h
+-}
+
 -- addToList :: Optional a -> Optional (List a) -> Optional (List a)
 -- addToList x y = bindOptional (\e -> mapOptional (e :.) y) x
 --    ~ addToList = twiceOptional (:.)
@@ -295,11 +311,14 @@ lengthGT4 =
 -- prop> let types = x :: List Int in reverse x ++ reverse y == reverse (y ++ x)
 --
 -- prop> let types = x :: Int in reverse (x :. Nil) == x :. Nil
-reverse ::
-  List a
-  -> List a
-reverse =
-  error "todo: Course.List#reverse"
+reverse :: List a -> List a
+reverse = foldLeft (flip (:.)) Nil
+{-
+reverse Nil = Nil
+reverse (h :. t) = reverse t ++ (h :. Nil)
+
+reverse = foldLeft (\acc el -> el :. acc) Nil
+-}
 
 -- | Produce an infinite `List` that seeds with the given value at its head,
 -- then runs the given function for subsequent elements
