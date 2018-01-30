@@ -44,36 +44,40 @@ instance Monad ExactlyOne where
 -- >>> (\n -> n :. n :. Nil) =<< (1 :. 2 :. 3 :. Nil)
 -- [1,1,2,2,3,3]
 instance Monad List where
-  (=<<) ::
-    (a -> List b)
-    -> List a
-    -> List b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance List"
+  (=<<) :: (a -> List b) -> List a -> List b
+  (=<<) = flatMap
 
 -- | Binds a function on an Optional.
 --
 -- >>> (\n -> Full (n + n)) =<< Full 7
 -- Full 14
 instance Monad Optional where
-  (=<<) ::
-    (a -> Optional b)
-    -> Optional a
-    -> Optional b
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance Optional"
+  (=<<) :: (a -> Optional b) -> Optional a -> Optional b
+  (=<<) = bindOptional
 
 -- | Binds a function on the reader ((->) t).
 --
 -- >>> ((*) =<< (+10)) 7
 -- 119
 instance Monad ((->) t) where
-  (=<<) ::
-    (a -> ((->) t b))
-    -> ((->) t a)
-    -> ((->) t b)
-  (=<<) =
-    error "todo: Course.Monad (=<<)#instance ((->) t)"
+  (=<<) :: (a -> (t -> b)) -> (t -> a) -> t -> b
+  (=<<) f g t = f (g t) t
+  -- (=<<) aTB tA t = aTB (tA t) t
+
+
+{-
+
+join (+) 5 == 10
+  \f g t -> f (g t) t
+
+join = (=<<) id (+) 5
+     = (\f g t -> f (g t) t) id (+) 5
+     = (\g t -> id (g t) t) (+) 5
+     = (\t -> id ((+) t) t) 5
+     =  id ((+) 5) 5
+     = (+) 5 5
+
+-}
 
 -- | Witness that all things with (=<<) and (<$>) also have (<*>).
 --
@@ -106,13 +110,22 @@ instance Monad ((->) t) where
 --
 -- >>> ((*) <**> (+2)) 3
 -- 15
-(<**>) ::
-  Monad f =>
-  f (a -> b)
-  -> f a
-  -> f b
-(<**>) =
-  error "todo: Course.Monad#(<**>)"
+(<**>) :: Monad f => f (a -> b) -> f a -> f b
+(<**>) = lift2 id
+
+{-
+  lift2 :: (x -> y -> z) -> f x -> f y -> f z
+      where x = (a -> b)
+            y = a
+            z = b
+      Therefore, (<**>) = lift2 id
+
+  thing :: (a -> b) -> a -> b
+  thing = \f a -> f a
+  thing = id
+-}
+
+
 
 infixl 4 <**>
 
@@ -129,26 +142,24 @@ infixl 4 <**>
 --
 -- >>> join (+) 7
 -- 14
-join ::
-  Monad f =>
-  f (f a)
-  -> f a
-join =
-  error "todo: Course.Monad#join"
+join :: Monad f => f (f a) -> f a
+join = (=<<) id
 
--- | Implement a flipped version of @(=<<)@, however, use only
--- @join@ and @(<$>)@.
+{-
+
+  join :: f (f a) -> f a
+  (=<<) :: (a -> f b) -> f a -> f b
+  (=<<) :: (f a -> f a) -> f (f a) -> f a
+
+-}
+
+-- | Implement a flipped version of @(=<<)@
 -- Pronounced, bind flipped.
 --
 -- >>> ((+10) >>= (*)) 7
 -- 119
-(>>=) ::
-  Monad f =>
-  f a
-  -> (a -> f b)
-  -> f b
-(>>=) =
-  error "todo: Course.Monad#(>>=)"
+(>>=) :: Monad f => f a -> (a -> f b) -> f b
+(>>=) = flip (=<<)
 
 infixl 1 >>=
 
@@ -157,14 +168,8 @@ infixl 1 >>=
 --
 -- >>> ((\n -> n :. n :. Nil) <=< (\n -> n+1 :. n+2 :. Nil)) 1
 -- [2,2,3,3]
-(<=<) ::
-  Monad f =>
-  (b -> f c)
-  -> (a -> f b)
-  -> a
-  -> f c
-(<=<) =
-  error "todo: Course.Monad#(<=<)"
+(<=<) :: Monad f => (b -> f c) -> (a -> f b) -> a -> f c
+(<=<) bFC aFB a = bFC =<< aFB a
 
 infixr 1 <=<
 
