@@ -54,19 +54,12 @@ instance Functor ParseResult where
     Result i (f a)
 
 -- Function to determine is a parse result is an error.
-isErrorResult ::
-  ParseResult a
-  -> Bool
-isErrorResult (Result _ _) =
-  False
-isErrorResult UnexpectedEof =
-  True
-isErrorResult (ExpectedEof _) =
-  True
-isErrorResult (UnexpectedChar _) =
-  True
-isErrorResult (UnexpectedString _) =
-  True
+isErrorResult :: ParseResult a -> Bool
+isErrorResult (Result _ _) = False
+isErrorResult UnexpectedEof = True
+isErrorResult (ExpectedEof _) = True
+isErrorResult (UnexpectedChar _) = True
+isErrorResult (UnexpectedString _) = True
 
 -- | Runs the given function on a successful parse result. Otherwise return the same failing parse result.
 onResult ::
@@ -86,46 +79,33 @@ onResult (Result i a) k =
 
 data Parser a = P (Input -> ParseResult a)
 
-parse ::
-  Parser a
-  -> Input
-  -> ParseResult a
-parse (P p) =
-  p
+parse :: Parser a -> Input -> ParseResult a
+parse (P p) = p
 
 -- | Produces a parser that always fails with @UnexpectedChar@ using the given character.
-unexpectedCharParser ::
-  Char
-  -> Parser a
-unexpectedCharParser c =
-  P (\_ -> UnexpectedChar c)
+unexpectedCharParser :: Char -> Parser a
+unexpectedCharParser c = P (\_ -> UnexpectedChar c)
 
 --- | Return a parser that always returns the given parse result.
 ---
 --- >>> isErrorResult (parse (constantParser UnexpectedEof) "abc")
 --- True
-constantParser ::
-  ParseResult a
-  -> Parser a
-constantParser =
-  P . const
+constantParser :: ParseResult a -> Parser a
+constantParser = P . const
 
 -- | A parser that produces zero or a positive integer.
-natural ::
-  Parser Int
-natural =
-  bindParser (\k -> case read k of Empty  -> constantParser (UnexpectedString k)
-                                   Full h -> valueParser h) (list1 digit)
+natural :: Parser Int
+natural = bindParser (\k -> case read k of
+                                  Empty  -> constantParser (UnexpectedString k)
+                                  Full h -> valueParser h
+                     ) (list1 digit)
 
 -- | Return a parser that always succeeds with the given value and consumes no input.
 --
 -- >>> parse (valueParser 3) "abc"
 -- Result >abc< 3
-valueParser ::
-  a
-  -> Parser a
-valueParser =
-  error "todo: Course.Parser#valueParser"
+valueParser :: a -> Parser a
+valueParser = \a -> P (\i -> Result i a)
 
 -- | Return a parser that succeeds with a character off the input or fails with an error if the input is empty.
 --
@@ -134,10 +114,11 @@ valueParser =
 --
 -- >>> isErrorResult (parse character "")
 -- True
-character ::
-  Parser Char
-character =
-  error "todo: Course.Parser#character"
+character :: Parser Char
+character = P (\i -> case i of
+                          Nil -> UnexpectedEof
+                          h :. t -> Result t h
+              )
 
 -- | Return a parser that maps any succeeding result with the given function.
 --
@@ -146,12 +127,29 @@ character =
 --
 -- >>> parse (mapParser (+10) (valueParser 7)) ""
 -- Result >< 17
-mapParser ::
-  (a -> b)
-  -> Parser a
-  -> Parser b
-mapParser =
-  error "todo: Course.Parser#mapParser"
+mapParser :: (a -> b) -> Parser a -> Parser b
+mapParser f p = P ((f <$>) . (parse p))
+
+{-
+
+  (<$>) . (<$>) :: (Functor g, Functor f) => (a -> b) -> f (g a) -> f (g b)
+
+  mapParser f p = P (\i -> f <$> parse p i )
+
+  Parser a ~ Input -> ParseResult a
+  Parser a ~ f       (g           a)
+
+  f :: a -> b
+  parser p :: Input -> ParseResult a
+  i :: Input
+
+  ? :: ParseResult b
+
+  mapParser f (P i2ResultA) = P (\i -> case i2ResultA i of
+                                            Result _ a -> Result i (f a)
+                                 )
+
+-}
 
 -- | Return a parser that puts its input into the given parser and
 --
@@ -174,12 +172,14 @@ mapParser =
 --
 -- >>> isErrorResult (parse (bindParser (\c -> if c == 'x' then character else valueParser 'v') character) "x")
 -- True
-bindParser ::
-  (a -> Parser b)
-  -> Parser a
-  -> Parser b
-bindParser =
-  error "todo: Course.Parser#bindParser"
+bindParser :: (a -> Parser b) -> Parser a -> Parser b
+bindParser f p = P(\i -> case parse p i of
+                              Result i' a -> parse (f a) i'
+                              UnexpectedEof -> UnexpectedEof
+                              ExpectedEof l -> ExpectedEof l
+                              UnexpectedChar c -> UnexpectedChar c
+                              UnexpectedString s -> UnexpectedString s
+                  )
 
 -- | Return a parser that puts its input into the given parser and
 --
@@ -587,12 +587,8 @@ personParser =
 -- | Write a Functor instance for a @Parser@.
 -- /Tip:/ Use @bindParser@ and @valueParser@.
 instance Functor Parser where
-  (<$>) ::
-    (a -> b)
-    -> Parser a
-    -> Parser b
-  (<$>) =
-     error "todo: Course.Parser (<$>)#instance Parser"
+  (<$>) :: (a -> b) -> Parser a -> Parser b
+  (<$>) = error "todo: Course.Parser (<$>)#instance Parser"
 
 -- | Write an Applicative functor instance for a @Parser@.
 -- /Tip:/ Use @bindParser@ and @valueParser@.
