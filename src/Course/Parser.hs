@@ -597,6 +597,13 @@ personParser =
      p  <- spaces1 >>> phoneParser
      pure (Person a fn sn sm p)
 
+listPersons :: Parser (List Person)
+listPersons =
+  do p <- personParser
+     ps <- list (is ',' *> list space *> personParser)
+     pure (p :. ps)
+
+
 -- Make sure all the tests pass!
 
 
